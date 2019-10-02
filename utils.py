@@ -1,14 +1,77 @@
 # *_*coding:utf-8 *_*
+import os
+
 import cv2
+import gc
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.optimize import curve_fit
 
 
-class CalMask:
-    def __init__(self, masks):
+def generate_gif(path, path_save):
+    frames = []
+    for root, dir, imgs in os.walk(path):
+        for img in imgs:
+            try:
+                frames.append(imageio.imread(os.path.join(path, img)))
+            except BaseException:
+                print("error")
+    imageio.mimsave(path_save, frames, 'GIF', duration=0.1)
+
+    return 0
+
+
+def optimize_func(f, x, y):
+    """
+    optimization d'une function
+    :param f: function, la function a fit
+    :param x: np.array, les variables de distances
+    :param y: np.array, les tensions
+    :return:
+    """
+    popt, pcov = curve_fit(f, x, y)
+    a, b, c, d, e = popt
+    return f(x, a, b, c, d, e)
+
+
+def func(x, a, b, c, d, e):
+    """
+    la function a fit
+    :param x: np.array, les variables de distances
+    :param a: float, coefficient
+    :param b: float, coefficient
+    :param c: float, coefficient
+    :param d: float, coefficient
+    :param e: float, coefficient
+    :param f: float, coefficient
+    :return: np.array, les tensions
+    """
+    coe = [a, b, c, d, e]
+    res = np.zeros(x.shape)
+    for i in range(len(coe)):
+        res += np.power(x, i) * coe[i]
+    return res
+
+
+def copy_mat(img):
+    out = np.ndarray(img.shape)
+    out[:] = img
+    return out
+
+
+class ImgWithMasks:
+    def __init__(self, img, masks):
+        self.img = copy_mat(img)
         self.masks = masks
         self.centers = [mask.center for mask in self.masks]
         self.distance = get_distance(self.centers)
+
+    def draw_masks(self):
+        img_out = copy_mat(self.img)
+        for mask in self.masks:
+            img_out = copy_mat(mask.get_contour(img_out))
+        return img_out
 
 
 def get_distance(points):
@@ -31,8 +94,12 @@ class Mask:
         self.center = (0.5 * (x_s + x_f), 0.5 * (y_s + y_f))
 
     def get_contour(self, img):
-        img = cv2.rectangle(img, self.p_l_t, self.p_r_b, 1)
-        return img
+        img_output = copy_mat(img)
+        img_output = cv2.rectangle(img_output, self.p_l_t, self.p_r_b, 1)
+        new_out = copy_mat(img_output)
+        del img_output
+        gc.collect()
+        return new_out
 
 
 def generate_mask(img, xy):
@@ -124,11 +191,11 @@ def crap_par_point_fix(img, point_1, point_2, padding=True):
     if padding:
         img_x = np.zeros(img.shape)
         img_x[x_s:x_f, y_s:y_f] = img[x_s:x_f, y_s:y_f]
-        print(x_s, x_f, y_s, y_f)
+        # print(x_s, x_f, y_s, y_f)
         return img_x
     else:
         img_x = img[x_s:x_f, y_s:y_f]
-        print(x_s, x_f, y_s, y_f)
+        # print(x_s, x_f, y_s, y_f)
         return img_x
 
 
@@ -137,7 +204,7 @@ def max_filtre(x, ker=100):
     m = np.zeros((ker, l - ker + 1))
     for i in range(ker):
         m[i, :] = x[i:l - ker + i + 1]
-    print(np.max(m, axis=0))
+    # print(np.max(m, axis=0))
     return np.max(m, axis=0)
 
 
@@ -149,7 +216,7 @@ def means_k(x):
 
 
 def find_empty(img):
-    img_0 = np.array(img)
+    img_0 = img  # .copy()
     img_0[img > 250] = 0
     img_0[img <= 250] = 255
 
@@ -160,6 +227,28 @@ def find_empty(img):
     y_d, y_f = get_borne_axis(label0)
     x_d, x_f = get_borne_axis(label1)
     return (x_d, y_d), (x_f, y_f)
+
+
+def get_axis_char(img, dim=0):
+    single_dim = np.sum(img, axis=dim)
+    var_max = np.max(single_dim) * 0.95
+    single_dim[single_dim <= var_max] = 0
+    single_dim[single_dim > var_max] = 1
+    single_dim *= np.arange(len(single_dim), dtype='uint32')
+    res = [x for x in single_dim if x > 0]
+    padding = int((max(res) - min(res)) * 0.15)
+    # print(max(res),min(res))
+    return min(res) + padding, max(res) - padding
+
+
+def exp_test(path):
+    img = read_img(path)
+    [x1, x2] = get_axis_char(img, 0)
+    img_new = np.zeros(img.shape)
+    img_new[800:1200, x1:x2] = 255 - img[800:1200, x1:x2]
+    img_new[img_new <= 150] = 0
+    img_new[img_new > 150] = 1
+    return img_new
 
 
 def pre_analyse(img):
@@ -193,18 +282,48 @@ def pre_analyse(img):
 
 
 if __name__ == "__main__":
-    img_r = read_img(path="pic//image2.tiff")
-    p1 = (800, 400)
-    p2 = (1200, 800)
-    img_t = crap_par_point_fix(img_r, p1, p2, False)
-    img_com = np.array(img_t)
-    img_t[img_t <= 100] = 1
-    img_t[img_t > 100] = 0
-    cv2.imshow("crap", img_t * 255)
-    masks = get_all_masks(img_t)
-    distance=CalMask(masks).distance
-    print(distance)
-    for i, mask in enumerate(masks):
-        img_com = mask.get_contour(img_com)
-    cv2.imshow("result", img_com * 255)
-    cv2.waitKey()
+    path = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\gr_5_test_2_pictures"
+    path_save = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1"
+    path_gif = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1.gif"
+
+    if not os.path.isdir(path_save):
+        os.mkdir(path_save)
+    if not os.path.isdir(path):
+        print("Not a dir")
+        exit()
+    distance = []
+    for root, dir, files in os.walk(path):
+        for i, img_path in enumerate(sorted(files)):
+            img_trated = exp_test(os.path.join(path, img_path))
+            try:
+                img_with_mask = ImgWithMasks(img_trated, get_all_masks(img_trated))
+            except IndexError:
+                print("{}th picture --- No points detected in {}".format(str(i).zfill(3), img_path))
+            except BaseException:
+                print("Error in detection")
+            else:
+                final_img = img_with_mask.draw_masks()
+                print("{}th picture --- Points detection finished with x : {} | y : {}".format(str(i).zfill(3),
+                                                                                               img_with_mask.distance[
+                                                                                                   0],
+                                                                                               img_with_mask.distance[
+                                                                                                   1]))
+                distance.append((img_with_mask.distance[0], img_with_mask.distance[1]))
+                new_path = img_path[:-5] + '.png'
+                cv2.imwrite(os.path.join(path_save, new_path), final_img[950:1150, 150:850] * 255)
+    distance = np.array(distance, dtype=[("x", float), ("y", float)])
+    plt.title("Deformation parmis axis x et axis y en fonction du temps")
+    plt.xlabel("temps")
+    plt.ylabel("pixels")
+    plt.plot(np.arange(len(distance)), distance["x"], 'y.', label="distance en axis x ")
+    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['x']), 'dimgray',
+             label="pediction en aixs x")
+
+    plt.plot(np.arange(len(distance)), distance["y"], 'g.', label="distance en axis y ")
+    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['y']), 'slategray',
+             label="pediction en aixs y")
+
+    plt.legend()
+    plt.show()
+    generate_gif(path_save, path_gif)
+    quit()
