@@ -351,7 +351,7 @@ def save_distance(data):
 
 if __name__ == "__main__":
     distance = get_data("data\\distance.csv")[:-10]
-    plt.subplot(1,2,1)
+    # plt.subplot(1,2,1)
     plt.title("Deformation parmis axis x et axis y en fonction du temps")
     plt.xlabel("temps/dt")
     plt.ylabel("deformation (sans unite)")
@@ -363,8 +363,8 @@ if __name__ == "__main__":
     plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['y']) - 1, 'slategray',
              label="pediction en aixs y")
     plt.legend()
-    # plt.show()
-    plt.subplot(1, 2, 2)
+    plt.show()
+    #plt.subplot(1, 2, 2)
     data_force = get_data(path_force)
     temps = data_force["t(s)"]
     force = data_force[" F(N)"]
@@ -377,5 +377,5 @@ if __name__ == "__main__":
     plt.plot(distance["y"] - 1, f_inter / 2.5 / 6, label='contrainte en fonction de deformation y')
     plt.legend()
     plt.show()
-    generate_gif(path_save, path_gif)
-    quit()
+    # generate_gif(path_save, path_gif)
+    #quit()
