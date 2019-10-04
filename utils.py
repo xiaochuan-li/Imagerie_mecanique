@@ -19,9 +19,6 @@ path_force = "C:\\Users\\Administrator\\Desktop\\mec\\data\\gr_5_test_2_effort.c
 
 def get_data(path):
     data = pd.read_csv(path, sep=',')
-    # print(data)
-    # print(data[" F(N)"])
-    # quit()
     return data
 
 
@@ -30,6 +27,7 @@ def plot_Data(path):
     plt.plot(data["t(s)"], data[" F(N)"], label="FORCE EN FONCTION DU TEMPS")
     plt.legend()
     plt.show()
+
 
 def generate_gif(path, path_save):
     frames = []
@@ -273,7 +271,7 @@ def exp_test(path):
     # plt.plot(np.arange(len(data_0)), data_0)
     # plt.plot(np.arange(len(data)),data)
     # plt.show()
-    #quit()
+    # quit()
     img_new[img_new <= 150] = 0
     img_new[img_new > 150] = 1
     return img_new
@@ -310,8 +308,6 @@ def pre_analyse(img):
 
 
 def get_distance_all(path, path_save):
-    # plot_Data(path_force)
-    # quit()
     if not os.path.isdir(path_save):
         os.mkdir(path_save)
     if not os.path.isdir(path):
@@ -364,7 +360,7 @@ if __name__ == "__main__":
              label="pediction en aixs y")
     plt.legend()
     plt.show()
-    #plt.subplot(1, 2, 2)
+    # plt.subplot(1, 2, 2)
     data_force = get_data(path_force)
     temps = data_force["t(s)"]
     force = data_force[" F(N)"]
@@ -377,5 +373,3 @@ if __name__ == "__main__":
     plt.plot(distance["y"] - 1, f_inter / 2.5 / 6, label='contrainte en fonction de deformation y')
     plt.legend()
     plt.show()
-    # generate_gif(path_save, path_gif)
-    #quit()
