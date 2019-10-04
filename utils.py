@@ -6,8 +6,30 @@ import gc
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
+path = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\gr_5_test_2_pictures"
+path_save = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1"
+
+path_gif = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1.gif"
+path_force = "C:\\Users\\Administrator\\Desktop\\mec\\data\\gr_5_test_2_effort.csv"
+
+
+def get_data(path):
+    data = pd.read_csv(path, sep=',')
+    # print(data)
+    # print(data[" F(N)"])
+    # quit()
+    return data
+
+
+def plot_Data(path):
+    data = get_data(path)
+    plt.plot(data["t(s)"], data[" F(N)"], label="FORCE EN FONCTION DU TEMPS")
+    plt.legend()
+    plt.show()
 
 def generate_gif(path, path_save):
     frames = []
@@ -246,6 +268,12 @@ def exp_test(path):
     [x1, x2] = get_axis_char(img, 0)
     img_new = np.zeros(img.shape)
     img_new[800:1200, x1:x2] = 255 - img[800:1200, x1:x2]
+    # data_0=np.sum(img_new,1)[:500]
+    # data=np.sum(img_new,1)[800:1200]
+    # plt.plot(np.arange(len(data_0)), data_0)
+    # plt.plot(np.arange(len(data)),data)
+    # plt.show()
+    #quit()
     img_new[img_new <= 150] = 0
     img_new[img_new > 150] = 1
     return img_new
@@ -281,11 +309,9 @@ def pre_analyse(img):
     plt.imshow(img_show, cmap="gray")
 
 
-if __name__ == "__main__":
-    path = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\gr_5_test_2_pictures"
-    path_save = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1"
-    path_gif = "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1.gif"
-
+def get_distance_all(path, path_save):
+    # plot_Data(path_force)
+    # quit()
     if not os.path.isdir(path_save):
         os.mkdir(path_save)
     if not os.path.isdir(path):
@@ -294,6 +320,7 @@ if __name__ == "__main__":
     distance = []
     for root, dir, files in os.walk(path):
         for i, img_path in enumerate(sorted(files)):
+            time = float(img_path[11:-5])
             img_trated = exp_test(os.path.join(path, img_path))
             try:
                 img_with_mask = ImgWithMasks(img_trated, get_all_masks(img_trated))
@@ -308,21 +335,46 @@ if __name__ == "__main__":
                                                                                                    0],
                                                                                                img_with_mask.distance[
                                                                                                    1]))
-                distance.append((img_with_mask.distance[0], img_with_mask.distance[1]))
+                distance.append((time, img_with_mask.distance[0], img_with_mask.distance[1]))
                 new_path = img_path[:-5] + '.png'
                 cv2.imwrite(os.path.join(path_save, new_path), final_img[950:1150, 150:850] * 255)
-    distance = np.array(distance, dtype=[("x", float), ("y", float)])
+    distance = np.array(distance, dtype=[("t", float), ("y", float), ("x", float)])
+    distance["x"] /= distance["x"][0]
+    distance["y"] /= distance["y"][0]
+    return distance
+
+
+def save_distance(data):
+    new_csv = pd.DataFrame(data)
+    new_csv.to_csv("data\\distance.csv")
+
+
+if __name__ == "__main__":
+    distance = get_data("data\\distance.csv")[:-10]
+    plt.subplot(1,2,1)
     plt.title("Deformation parmis axis x et axis y en fonction du temps")
     plt.xlabel("temps")
     plt.ylabel("pixels")
-    plt.plot(np.arange(len(distance)), distance["x"], 'y.', label="distance en axis x ")
-    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['x']), 'dimgray',
+    plt.plot(np.arange(len(distance)), distance["x"] - 1, 'y.', label="distance en axis x ")
+    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['x']) - 1, 'dimgray',
              label="pediction en aixs x")
 
-    plt.plot(np.arange(len(distance)), distance["y"], 'g.', label="distance en axis y ")
-    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['y']), 'slategray',
+    plt.plot(np.arange(len(distance)), distance["y"] - 1, 'g.', label="distance en axis y ")
+    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['y']) - 1, 'slategray',
              label="pediction en aixs y")
-
+    plt.legend()
+    # plt.show()
+    plt.subplot(1, 2, 2)
+    data_force = get_data(path_force)
+    temps = data_force["t(s)"]
+    force = data_force[" F(N)"]
+    func_f = interp1d(temps, force)
+    f_inter = func_f(distance["t"])
+    plt.title("test 2 contraintes en function de deformation")
+    plt.xlabel("deformation")
+    plt.ylabel("contraintes/MPa")
+    plt.plot(distance["x"] - 1, f_inter / 2.5 / 6, label='contrainte en fonction de deformation x')
+    plt.plot(distance["y"] - 1, f_inter / 2.5 / 6, label='contrainte en fonction de deformation y')
     plt.legend()
     plt.show()
     generate_gif(path_save, path_gif)
