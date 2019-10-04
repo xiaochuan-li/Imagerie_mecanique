@@ -353,8 +353,8 @@ if __name__ == "__main__":
     distance = get_data("data\\distance.csv")[:-10]
     plt.subplot(1,2,1)
     plt.title("Deformation parmis axis x et axis y en fonction du temps")
-    plt.xlabel("temps")
-    plt.ylabel("pixels")
+    plt.xlabel("temps/dt")
+    plt.ylabel("deformation (sans unite)")
     plt.plot(np.arange(len(distance)), distance["x"] - 1, 'y.', label="distance en axis x ")
     plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['x']) - 1, 'dimgray',
              label="pediction en aixs x")
