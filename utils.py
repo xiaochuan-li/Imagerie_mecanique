@@ -11,7 +11,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
 config1 = {
-    'name': "test1",
+    'name': "sans bulle",
     'path': "D:\\download\\gr_5_test_1_pictures-20191004T083004Z-001\\gr_5_test_1_pictures",
     'path_save': "D:\\download\\gr_5_test_1_pictures-20191004T083004Z-001\\res0",
     'path_gif': "D:\\download\\gr_5_test_1_pictures-20191004T083004Z-001\\res1.gif",
@@ -19,9 +19,10 @@ config1 = {
     'ratio_max': 0.9,
     'padding': 0.1,
     'seuil': 180,
+    'path_distance': 'data/sans bulle_distance.csv'
 }
 config2 = {
-    'name': "test2",
+    'name': "avec bulle",
     'path': "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\gr_5_test_2_pictures",
     'path_save': "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res0",
     'path_gif': "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1.gif",
@@ -29,6 +30,7 @@ config2 = {
     'ratio_max': 0.95,
     'padding': 0.15,
     'seuil': 120,
+    'path_distance': 'data/avec bulle_distance.csv'
 }
 config = config2
 name = config['name']
@@ -39,7 +41,7 @@ path_gif = config['path_gif']
 ratio_max = config['ratio_max']
 padding_max = config['padding']
 seuil_max = config['seuil']
-
+path_distance = config['path_distance']
 def get_data(path):
     data = pd.read_csv(path, sep=',')
     return data
@@ -308,22 +310,9 @@ def exp_test(path):
     [x1, x2] = get_axis_char(img, 0)
     img_new = np.zeros(img.shape)
     img_new[800:1200, x1:x2] = 255 - img[800:1200, x1:x2]
-    # cv2.imshow('ori',cv2.resize(img[800:1200, x1:x2],(900,500)))
     cv2.blur(img, (20, 20))
-    # data_0=np.sum(img_new,1)#[:500]
-    # data=np.sum(img_new,1)#[800:1200]
-    # plt.plot(np.arange(len(data_0)), data_0)
-    # plt.plot(np.arange(len(data)),data)
-    # plt.show()
-    # quit()
-    # cv2.imshow('test',cv2.resize(img_new,(900,500)))
-    # cv2.waitKey(0)
-    # quit()
     img_new[img_new <= seuil_max] = 0
     img_new[img_new > seuil_max] = 1
-    # cv2.imshow('test1', cv2.resize(img_new, (900, 500)))
-    # cv2.waitKey(1)
-    # quit()
     return img_new
 
 
@@ -401,12 +390,30 @@ def load_pos(path="data\\gr_5_test_2_position.csv"):
 
 def save_distance(data):
     new_csv = pd.DataFrame(data)
-    dis_path = os.path.join('data', name + '_distance.csv')
-    new_csv.to_csv(dis_path)
+    new_csv.to_csv(path_distance)
+
+
+def D_T(data_path='data/test1_distance.csv', name='test1'):
+    data = get_data(data_path)[:130]
+    x = data['t']
+    d_x = data['x']
+    d_y = data['y']
+    plt.title(name + ' deformation en fonction du temps')
+    plt.plot(x, d_x, label='Longitudinale')
+    plt.plot(x, d_y, label='Transversale')
+    plt.legend()
+    plt.xlabel('temps(s)')
+    plt.ylabel('deformation(mm/mm)')
+    plt.savefig(os.path.join('data', name + '_defome-temps.png'))
+    plt.show()
 
 
 if __name__ == "__main__":
-    distance = get_distance_all(path, path_save)[:100]
+    # D_T(name='test sans bull')
+    # D_T(data_path='data/test2_distance.csv',name='test avec bull')
+    # quit()
+    # distance = get_distance_all(path, path_save)[:100]
+    distance = get_data(path_distance)[:100]
     generate_gif(path_save, "test.gif")
     pos=load_pos()
     # plt.subplot(1,2,1)
@@ -426,25 +433,22 @@ if __name__ == "__main__":
     temps_p = pos["t(s)"][:-5]
     pos_p = pos[" position1"][:-5]
     pos_p /= pos_p[0]
-    # pos_p=pos_p[:len(distance)]
-    #temps_p=temps_p[:len((distance))]
-    # plt.subplot(1, 2, 2)
     data_force = get_data(path_force)
     temps = data_force["t(s)"]
     force = data_force[" F(N)"]
     func_f = interp1d(temps, force)
     force_p =func_f(temps_p)
     f_inter = func_f(distance["t"])
-    plt.title(name + " contraintes en function de deformation")
-    plt.xlabel("deformation")
-    plt.ylabel("contraintes/MPa")
-    plt.plot(pos_p - 1, force_p / 2.5 / 6, label="data position - force")
-    plt.plot(distance["x"] - 1, f_inter / 2.5 / 6, 'y.', label='contrainte en fonction de deformation x')
-    plt.plot(distance["y"] - 1, f_inter / 2.5 / 6, 'g.', label='contrainte en fonction de deformation y')
+    plt.title("contraintes - deformation (" + name + ')')
+    plt.xlabel("deformation(mm/mm)")
+    plt.ylabel("contraintes(MPa)")
+    plt.plot(pos_p - 1, force_p / 2.5 / 6, label="global longitudinal")
+    plt.plot(distance["x"] - 1, f_inter / 2.5 / 6, 'y.', label='local longitudinal')
+    plt.plot(distance["y"] - 1, f_inter / 2.5 / 6, 'g.', label='local transversal')
     force_curve_1 = optimize_func(func, distance["x"] - 1, f_inter / 2.5 / 6)
     force_curve_2 = optimize_func(func, distance["y"] - 1, f_inter / 2.5 / 6)
-    plt.plot(distance["x"] - 1, force_curve_1, 'gray', label='fit contrainte en fonction de deformation x')
-    plt.plot(distance["y"] - 1, force_curve_2, 'b', label='fit contrainte en fonction de deformation y')
+    plt.plot(distance["x"] - 1, force_curve_1, 'gray', label='fit local longitudinal')
+    plt.plot(distance["y"] - 1, force_curve_2, 'b', label='fit local transversal')
     plt.legend()
     plt.savefig(os.path.join('data', name+'fin.png'))
     plt.show()
