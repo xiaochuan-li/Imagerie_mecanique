@@ -13,8 +13,8 @@ if __name__ == "__main__":
         distance = get_distance_all(path, path_save)[:130]
 
     # if there is no .gif, we generate a .gif to show how the points move
-    if not os.path.isfile(os.path.join(path_save, name + '.gif')):
-        generate_gif(path_save, name + '.gif')
+    if not os.path.isfile(path_gif) and os.path.isdir(path_save):
+        generate_gif(path_save, path_gif)
 
     # loading position data(global)
     global_pos_data = load_pos()
