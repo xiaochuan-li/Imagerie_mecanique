@@ -7,6 +7,7 @@ import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
 from config import config
@@ -298,3 +299,59 @@ def D_T(data_path='data/test1_distance.csv', name='test1'):
     plt.ylabel('deformation(mm/mm)')
     plt.savefig(os.path.join('data', name + '_defome-temps.png'))
     plt.show()
+
+
+def get_stretch_stress(path_distance="sansbulle_distance.csv", path_force="sansbulle_force.csv"):
+    data_distance = get_data(path_distance)[:130]
+    data_force = get_data(path_force)
+    temps = data_force["t(s)"]
+    force_raw = data_force[" F(N)"]
+    func_f = interp1d(temps, force_raw)
+    force = func_f(data_distance["t"])
+    stretch = data_distance["x"]
+    stress = force / 2.5 / 6
+    return stretch, stress
+
+
+def sigma(x, a, b):
+    sigma = 2 * (x - 1 / x ** 2) * (a + 2 * b * (x ** 2 + 2 * x + 3))
+    return sigma
+
+
+def identifier(path_distance="sansbulle_distance.csv", path_force="sansbulle_force.csv"):
+    stretch, stress = get_stretch_stress(path_distance, path_force)
+    [c0, c1], opt = curve_fit(sigma, stretch, stress)
+    return c0, c1
+
+
+def plot_ss(path_distance="sansbulle_distance.csv", path_force="sansbulle_force.csv", title="sansbulle"):
+    stretch, stress = get_stretch_stress(path_distance, path_force)
+    c0, c1 = identifier(path_distance, path_force)
+    stress_model = sigma(stretch, c0, c1)
+    plt.title("identification " + str(title))
+    plt.xlabel("stretch(mm/mm)")
+    plt.ylabel("Nominal stress(Mpa)")
+    plt.plot(stretch, stress, label='exp')
+    plt.plot(stretch, stress_model, label='model')
+    plt.legend()
+    plt.savefig("identification" + str(title) + ".png")
+    plt.show()
+    return 0
+
+
+def plot_va():
+    path_d_sans = "sansbulle_distance.csv"
+    path_f_sans = "sansbulle_force.csv"
+    path_d_avec = "avecbulle_distance.csv"
+    path_f_avec = "avecbulle_force.csv"
+    stretch_sans, stress_sans = get_stretch_stress(path_d_sans, path_f_sans)
+    stretch_avec, stress_avec = get_stretch_stress(path_d_avec, path_f_avec)
+    plt.title("comparaison avec et sans bulle")
+    plt.xlabel("TRUE stretch(mm/mm)")
+    plt.ylabel("Nominal stress(Mpa)")
+    plt.plot(stretch_sans, stress_sans, label='true stress')
+    plt.plot(stretch_avec, stress_avec, label='stress')
+    plt.legend()
+    plt.savefig("comparaison.png")
+    plt.show()
+    return 0

@@ -1,5 +1,4 @@
 # *_*coding:utf-8 *_*
-from scipy.interpolate import interp1d
 
 from utils import *
 
@@ -49,3 +48,9 @@ if __name__ == "__main__":
     plt.legend()
     plt.savefig(os.path.join('data', name + 'fin.png'))
     plt.show()
+
+    # analyse
+    print(identifier("data\\sans bulle_distance.csv", "data\\gr_5_test_1_effort.csv"))
+    plot_ss("data\\sans bulle_distance.csv", "data\\gr_5_test_1_effort.csv", "sansbulle")
+    print(identifier("data\\avec bulle_distance.csv", "data\\gr_5_test_2_effort.csv"))
+    plot_ss("data\\avec bulle_distance.csv", "data\\gr_5_test_1_effort.csv", "avecbulle")
