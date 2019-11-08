@@ -7,32 +7,10 @@ import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
-config1 = {
-    'name': "sans bulle",
-    'path': "D:\\download\\gr_5_test_1_pictures-20191004T083004Z-001\\gr_5_test_1_pictures",
-    'path_save': "D:\\download\\gr_5_test_1_pictures-20191004T083004Z-001\\res0",
-    'path_gif': "D:\\download\\gr_5_test_1_pictures-20191004T083004Z-001\\res1.gif",
-    'path_force': "C:\\Users\\Administrator\\Desktop\\mec\\data\\gr_5_test_1_effort.csv",
-    'ratio_max': 0.9,
-    'padding': 0.1,
-    'seuil': 180,
-    'path_distance': 'data/sans bulle_distance.csv'
-}
-config2 = {
-    'name': "avec bulle",
-    'path': "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\gr_5_test_2_pictures",
-    'path_save': "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res0",
-    'path_gif': "D:\\download\\gr_5_test_2_pictures-20191002T093219Z-001\\res1.gif",
-    'path_force': "C:\\Users\\Administrator\\Desktop\\mec\\data\\gr_5_test_2_effort.csv",
-    'ratio_max': 0.95,
-    'padding': 0.15,
-    'seuil': 120,
-    'path_distance': 'data/avec bulle_distance.csv'
-}
-config = config1
+from config import config
+
 name = config['name']
 path = config['path']
 path_save = config['path_save']
@@ -42,6 +20,42 @@ ratio_max = config['ratio_max']
 padding_max = config['padding']
 seuil_max = config['seuil']
 path_distance = config['path_distance']
+
+
+class Mask:
+    def __init__(self, img, p1, p2):
+        x_s = min(p1[0], p2[0])
+        x_f = max(p1[0], p2[0])
+        y_s = min(p1[1], p2[1])
+        y_f = max(p1[1], p2[1])
+        self.p_l_t = (y_s, x_s)
+        self.p_l_b = (y_f, x_s)
+        self.p_r_t = (y_s, x_f)
+        self.p_r_b = (y_f, x_f)
+        self.mask = crap_par_point_fix(img, self.p_l_t, self.p_r_b, False)
+        self.center = (0.5 * (x_s + x_f), 0.5 * (y_s + y_f))
+
+    def get_contour(self, img):
+        img_output = copy_mat(img)
+        img_output = cv2.rectangle(img_output, self.p_l_t, self.p_r_b, 1)
+        new_out = copy_mat(img_output)
+        del img_output
+        gc.collect()
+        return new_out
+
+
+class ImgWithMasks:
+    def __init__(self, img, masks):
+        self.img = copy_mat(img)
+        self.masks = masks
+        self.centers = [mask.center for mask in self.masks]
+        self.distance = get_distance(self.centers)
+
+    def draw_masks(self):
+        img_out = copy_mat(self.img)
+        for mask in self.masks:
+            img_out = copy_mat(mask.get_contour(img_out))
+        return img_out
 
 
 def get_data(path):
@@ -97,46 +111,10 @@ def copy_mat(img):
     return out
 
 
-class ImgWithMasks:
-    def __init__(self, img, masks):
-        self.img = copy_mat(img)
-        self.masks = masks
-        self.centers = [mask.center for mask in self.masks]
-        self.distance = get_distance(self.centers)
-
-    def draw_masks(self):
-        img_out = copy_mat(self.img)
-        for mask in self.masks:
-            img_out = copy_mat(mask.get_contour(img_out))
-        return img_out
-
-
 def get_distance(points):
     x_s = [x[0] for x in points]
     y_s = [x[1] for x in points]
     return [max(x_s) - min(x_s), max(y_s) - min(y_s)]
-
-
-class Mask:
-    def __init__(self, img, p1, p2):
-        x_s = min(p1[0], p2[0])
-        x_f = max(p1[0], p2[0])
-        y_s = min(p1[1], p2[1])
-        y_f = max(p1[1], p2[1])
-        self.p_l_t = (y_s, x_s)
-        self.p_l_b = (y_f, x_s)
-        self.p_r_t = (y_s, x_f)
-        self.p_r_b = (y_f, x_f)
-        self.mask = crap_par_point_fix(img, self.p_l_t, self.p_r_b, False)
-        self.center = (0.5 * (x_s + x_f), 0.5 * (y_s + y_f))
-
-    def get_contour(self, img):
-        img_output = copy_mat(img)
-        img_output = cv2.rectangle(img_output, self.p_l_t, self.p_r_b, 1)
-        new_out = copy_mat(img_output)
-        del img_output
-        gc.collect()
-        return new_out
 
 
 def generate_mask(img, xy):
@@ -228,45 +206,14 @@ def crap_par_point_fix(img, point_1, point_2, padding=True):
     if padding:
         img_x = np.zeros(img.shape)
         img_x[x_s:x_f, y_s:y_f] = img[x_s:x_f, y_s:y_f]
-        # print(x_s, x_f, y_s, y_f)
         return img_x
     else:
         img_x = img[x_s:x_f, y_s:y_f]
-        # print(x_s, x_f, y_s, y_f)
         return img_x
 
 
-def max_filtre(x, ker=100):
-    l = len(x)
-    m = np.zeros((ker, l - ker + 1))
-    for i in range(ker):
-        m[i, :] = x[i:l - ker + i + 1]
-    # print(np.max(m, axis=0))
-    return np.max(m, axis=0)
-
-
-def means_k(x):
-    from sklearn.cluster import KMeans
-    estimator = KMeans(n_clusters=2)  # 构造聚类器
-    estimator.fit(x.reshape((-1, 1)))  # 聚类
-    return estimator.labels_
-
-
-def find_empty(img):
-    img_0 = img  # .copy()
-    img_0[img > 250] = 0
-    img_0[img <= 250] = 255
-
-    get_sum0 = max_filtre(np.sum(img_0, axis=0))
-    get_sum1 = max_filtre(np.sum(img_0, axis=1))
-    label0 = means_k(get_sum0)
-    label1 = means_k(get_sum1)
-    y_d, y_f = get_borne_axis(label0)
-    x_d, x_f = get_borne_axis(label1)
-    return (x_d, y_d), (x_f, y_f)
-
-
 def get_axis_char(img, dim=0):
+    global ratio_max, padding_max
     single_dim = np.sum(img, axis=dim)
     var_max = np.max(single_dim) * ratio_max
     single_dim[single_dim <= var_max] = 0
@@ -279,6 +226,7 @@ def get_axis_char(img, dim=0):
 
 
 def exp_test(path):
+    global seuil_max
     img = read_img(path)
     [x1, x2] = get_axis_char(img, 0)
     img_new = np.zeros(img.shape)
@@ -286,10 +234,6 @@ def exp_test(path):
     cv2.blur(img, (20, 20))
     img_new[img_new <= seuil_max] = 0
     img_new[img_new > seuil_max] = 1
-    plt.imshow(img_new[800:1200, x1:x2], cmap='gray')
-    plt.title('image filtrée sur ROI ')
-    plt.show()
-    quit()
     return img_new
 
 
@@ -300,10 +244,8 @@ def get_distance_all(path, path_save):
         print("Not a dir")
         exit()
     distance = []
-    #print(path)
     for root, dir, files in os.walk(path):
         for i, img_path in enumerate(sorted(files)[:200]):
-            print(img_path)
             time = float(img_path[11:-5])
             img_trated = exp_test(os.path.join(path, img_path))
 
@@ -337,7 +279,8 @@ def load_pos(path="data\\gr_5_test_2_position.csv"):
     return pos
 
 
-def save_distance(data):
+def save_distance(data, ):
+    global path_distance
     new_csv = pd.DataFrame(data)
     new_csv.to_csv(path_distance)
 
@@ -354,52 +297,4 @@ def D_T(data_path='data/test1_distance.csv', name='test1'):
     plt.xlabel('temps(s)')
     plt.ylabel('deformation(mm/mm)')
     plt.savefig(os.path.join('data', name + '_defome-temps.png'))
-    plt.show()
-
-
-class sort():
-    def __init__(self, a, b):
-        self.a, self.b = [a, b] if a > b else [b, a]
-
-    def __call__(self, *args, **kwargs):
-        return self.a, self.b
-
-
-def cal_s():
-    return np.array([[1], [2]], dtype=[('x', np.int), ('y', np.int)])
-
-
-if __name__ == "__main__":
-    D_T(data_path='data/sans bulle_distance.csv', name='test sans bull')
-    D_T(data_path='data/avec bulle_distance.csv', name='test avec bull')
-    quit()
-    if os.path.isfile(path_distance):
-        distance = get_data(path_distance)[:130]
-    else:
-        distance = get_distance_all(path, path_save)[:130]
-    if not os.path.isfile(os.path.join(path_save, name + '.gif')):
-        generate_gif(path_save, name + '.gif')
-    pos = load_pos()
-
-    temps_p = pos["t(s)"][:-5]
-    pos_p = pos[" position1"][:-5]
-    pos_p /= pos_p[0]
-    data_force = get_data(path_force)
-    temps = data_force["t(s)"]
-    force = data_force[" F(N)"]
-    func_f = interp1d(temps, force)
-    force_p = func_f(temps_p)
-    f_inter = func_f(distance["t"])
-    plt.title("contraintes - deformation (" + name + ')')
-    plt.xlabel("deformation(mm/mm)")
-    plt.ylabel("contraintes(MPa)")
-    plt.plot(pos_p - 1, force_p / 2.5 / 6, label="global longitudinal")
-    plt.plot(distance["x"] - 1, f_inter / 2.5 / 6, 'y.', label='local longitudinal')
-    plt.plot(distance["y"] - 1, f_inter / 2.5 / 6, 'g.', label='local transversal')
-    force_curve_1 = optimize_func(func, distance["x"] - 1, f_inter / 2.5 / 6)
-    force_curve_2 = optimize_func(func, distance["y"] - 1, f_inter / 2.5 / 6)
-    plt.plot(distance["x"] - 1, force_curve_1, 'gray', label='fit local longitudinal')
-    plt.plot(distance["y"] - 1, force_curve_2, 'b', label='fit local transversal')
-    plt.legend()
-    plt.savefig(os.path.join('data', name + 'fin.png'))
     plt.show()
