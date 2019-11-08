@@ -16,4 +16,6 @@ Once the config is set, you can use main.py to analyse your data, while all the 
 ### 1.3 Contrainte - Deformation
 <center><img src='https://github.com/xiaochuan-li/Imagerie_mecanique/blob/master/data/sans%20bullefin.png' /></center>
 
-## 2. Explications more detailed in main.py
+## 2. TODO LIST
+#### 2.1 Try to create an automatic one. In this project, there are several constant set through experiment, which is not cool, we'd like to get them automaticly.
+#### 2.2 The calculate of boundaries is simple, directe and a little violent, would it be possible to come up with a more elegent method? For example, what if we add a little bit of convolution when searching for the mask? What if we come up with a neural net to detect the points? And what if we use the NMS to remove those repetitions?
