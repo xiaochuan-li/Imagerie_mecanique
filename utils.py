@@ -32,7 +32,7 @@ config2 = {
     'seuil': 120,
     'path_distance': 'data/avec bulle_distance.csv'
 }
-config = config2
+config = config1
 name = config['name']
 path = config['path']
 path_save = config['path_save']
@@ -42,6 +42,8 @@ ratio_max = config['ratio_max']
 padding_max = config['padding']
 seuil_max = config['seuil']
 path_distance = config['path_distance']
+
+
 def get_data(path):
     data = pd.read_csv(path, sep=',')
     return data
@@ -68,48 +70,20 @@ def generate_gif(path, path_save):
 
 
 def optimize_func(f, x, y):
-    """
-    optimization d'une function
-    :param f: function, la function a fit
-    :param x: np.array, les variables de distances
-    :param y: np.array, les tensions
-    :return:
-    """
     popt, pcov = curve_fit(f, x, y)
     a, b, c, d, e = popt
     return f(x, a, b, c, d, e)
 
 
 def func_D_S(x, a, b, c, d, e):
-    """
-    la function a fit
-    :param x: np.array, les variables de distances
-    :param a: float, coefficient
-    :param b: float, coefficient
-    :param c: float, coefficient
-    :param d: float, coefficient
-    :param e: float, coefficient
-    :param f: float, coefficient
-    :return: np.array, les tensions
-    """
     coe = [a, b, c, d, e]
     res = np.zeros(x.shape)
     for i in range(len(coe)):
         res += np.power(x, i) * coe[i]
     return res
 
+
 def func(x, a, b, c, d, e):
-    """
-    la function a fit
-    :param x: np.array, les variables de distances
-    :param a: float, coefficient
-    :param b: float, coefficient
-    :param c: float, coefficient
-    :param d: float, coefficient
-    :param e: float, coefficient
-    :param f: float, coefficient
-    :return: np.array, les tensions
-    """
     coe = [a, b, c, d, e]
     res = np.zeros(x.shape)
     for i in range(len(coe)):
@@ -306,44 +280,17 @@ def get_axis_char(img, dim=0):
 
 def exp_test(path):
     img = read_img(path)
-
     [x1, x2] = get_axis_char(img, 0)
     img_new = np.zeros(img.shape)
     img_new[800:1200, x1:x2] = 255 - img[800:1200, x1:x2]
     cv2.blur(img, (20, 20))
     img_new[img_new <= seuil_max] = 0
     img_new[img_new > seuil_max] = 1
+    plt.imshow(img_new[800:1200, x1:x2], cmap='gray')
+    plt.title('image filtrée sur ROI ')
+    plt.show()
+    quit()
     return img_new
-
-
-def pre_analyse(img):
-    # show the image to analyse
-    cv2.imshow("test", img)
-    cv2.waitKey()
-
-    # we have decided to analyse acording to the value of each pixel
-    # it's likely that we are going to treat a problem of classification
-    # witch means that we have to decide if this point is "interesting" (ROI)
-    # but first of all i would like to take a look at its distribution
-
-    img_t = 255 - img
-    # attention that we take 1(white) for "there is someting" and 0(black) for
-    # "there is nothing"
-
-    img_s = np.ravel(img_t)
-    plt.hist(img_s, bins=20, label="distribution of value of image")
-    plt.legend()
-    plt.show()
-    # we notice that a pick apearing at about 0, which is reasonable cause we
-    # have a pure background, so we just delete those pixel in the background
-
-    img_show = [pix for pix in img_s if pix > 10]
-    plt.hist(img_show, bins=20, label="distribution of value of image traited")
-    plt.legend()
-    plt.show()
-    img_show[img_show <= 180] = 0
-    img_show[img_show > 180] = 1
-    plt.imshow(img_show, cmap="gray")
 
 
 def get_distance_all(path, path_save):
@@ -352,13 +299,14 @@ def get_distance_all(path, path_save):
     if not os.path.isdir(path):
         print("Not a dir")
         exit()
-    #print(path)
     distance = []
+    #print(path)
     for root, dir, files in os.walk(path):
         for i, img_path in enumerate(sorted(files)[:200]):
-            #print(img_path)
+            print(img_path)
             time = float(img_path[11:-5])
             img_trated = exp_test(os.path.join(path, img_path))
+
             try:
                 img_with_mask = ImgWithMasks(img_trated, get_all_masks(img_trated))
             except IndexError:
@@ -375,7 +323,7 @@ def get_distance_all(path, path_save):
                 distance.append((time, img_with_mask.distance[0], img_with_mask.distance[1]))
                 new_path = img_path[:-5] + '.png'
                 # cv2.imshow("test_fin", final_img[950:1150, :] * 255)
-                #cv2.waitKey(1)
+                # cv2.waitKey(1)
                 cv2.imwrite(os.path.join(path_save, new_path), final_img[950:1150, 150:850] * 255)
     distance = np.array(distance, dtype=[("t", float), ("y", float), ("x", float)])
     distance["x"] /= distance["x"][0]
@@ -388,6 +336,7 @@ def load_pos(path="data\\gr_5_test_2_position.csv"):
     pos = pd.read_csv(path)
     return pos
 
+
 def save_distance(data):
     new_csv = pd.DataFrame(data)
     new_csv.to_csv(path_distance)
@@ -399,8 +348,8 @@ def D_T(data_path='data/test1_distance.csv', name='test1'):
     d_x = data['x']
     d_y = data['y']
     plt.title(name + ' deformation en fonction du temps')
-    plt.plot(x, d_x, label='Longitudinale')
-    plt.plot(x, d_y, label='Transversale')
+    plt.plot(x, d_x, '.', label='Longitudinale')
+    plt.plot(x, d_y, '.', label='Transversale')
     plt.legend()
     plt.xlabel('temps(s)')
     plt.ylabel('deformation(mm/mm)')
@@ -408,28 +357,30 @@ def D_T(data_path='data/test1_distance.csv', name='test1'):
     plt.show()
 
 
-if __name__ == "__main__":
-    # D_T(name='test sans bull')
-    # D_T(data_path='data/test2_distance.csv',name='test avec bull')
-    # quit()
-    # distance = get_distance_all(path, path_save)[:100]
-    distance = get_data(path_distance)[:100]
-    generate_gif(path_save, "test.gif")
-    pos=load_pos()
-    # plt.subplot(1,2,1)
-    '''
-    plt.title("Deformation parmis axis x et axis y en fonction du temps")
-    plt.xlabel("temps/dt")
-    plt.ylabel("deformation (sans unite)")
-    plt.plot(np.arange(len(distance)), distance["x"] - 1, 'y.', label="distance en axis x ")
-    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['x']) - 1, 'dimgray',
-             label="pediction en aixs x")
+class sort():
+    def __init__(self, a, b):
+        self.a, self.b = [a, b] if a > b else [b, a]
 
-    plt.plot(np.arange(len(distance)), distance["y"] - 1, 'g.', label="distance en axis y ")
-    plt.plot(np.arange(len(distance)), optimize_func(func, np.arange(len(distance)), distance['y']) - 1, 'slategray',
-             label="pediction en aixs y")
-    plt.legend()
-    plt.show()'''
+    def __call__(self, *args, **kwargs):
+        return self.a, self.b
+
+
+def cal_s():
+    return np.array([[1], [2]], dtype=[('x', np.int), ('y', np.int)])
+
+
+if __name__ == "__main__":
+    D_T(data_path='data/sans bulle_distance.csv', name='test sans bull')
+    D_T(data_path='data/avec bulle_distance.csv', name='test avec bull')
+    quit()
+    if os.path.isfile(path_distance):
+        distance = get_data(path_distance)[:130]
+    else:
+        distance = get_distance_all(path, path_save)[:130]
+    if not os.path.isfile(os.path.join(path_save, name + '.gif')):
+        generate_gif(path_save, name + '.gif')
+    pos = load_pos()
+
     temps_p = pos["t(s)"][:-5]
     pos_p = pos[" position1"][:-5]
     pos_p /= pos_p[0]
@@ -437,7 +388,7 @@ if __name__ == "__main__":
     temps = data_force["t(s)"]
     force = data_force[" F(N)"]
     func_f = interp1d(temps, force)
-    force_p =func_f(temps_p)
+    force_p = func_f(temps_p)
     f_inter = func_f(distance["t"])
     plt.title("contraintes - deformation (" + name + ')')
     plt.xlabel("deformation(mm/mm)")
@@ -450,5 +401,5 @@ if __name__ == "__main__":
     plt.plot(distance["x"] - 1, force_curve_1, 'gray', label='fit local longitudinal')
     plt.plot(distance["y"] - 1, force_curve_2, 'b', label='fit local transversal')
     plt.legend()
-    plt.savefig(os.path.join('data', name+'fin.png'))
+    plt.savefig(os.path.join('data', name + 'fin.png'))
     plt.show()
